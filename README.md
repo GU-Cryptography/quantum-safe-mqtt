@@ -7,4 +7,4 @@
 ### Steps to create self-signed certificate
 Follow steps in second answer here: https://superuser.com/questions/1428012/cant-verify-an-openssl-certificate-against-a-self-signed-openssl-certificate
 
-Except use the two CNF files in this repo
+Except use the two CNF files in this repo under the 'background files' folder
