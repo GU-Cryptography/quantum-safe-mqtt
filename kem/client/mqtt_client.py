@@ -83,7 +83,7 @@ class MqttClient:
         self.dHS = hkdf_expand(HS, "derived")
 
         public_key_server = "ABC123"  # TODO extract this from certificate
-        cipher_text_s = encrypt(public_key_server, self.shared_secret)
+        cipher_text_s, self.shared_secret = encrypt(public_key_server)
 
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_KEM_CIPHERTEXT]

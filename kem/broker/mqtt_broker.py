@@ -1,11 +1,22 @@
+import hashlib
+import hmac
+import random
 import subprocess
 
 import broker_config
 import validate
 import json
 import select
-from custom_errors import *
-from util import remaining_length_bytes, get_remaining_length_int
+from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
+
+from hkdf.hkdf import hkdf_expand, hkdf_extract
+from kem.client.mqtt_client import KEY_LEN
+from kem.packet_types import *
+
+
+import kem.packet_types
+from kem.custom_errors import *
+from kem.util import remaining_length_bytes, get_remaining_length_int, check_protocol_name_kemtls
 
 REASON_CODE = {
     "success": 0x00,
@@ -27,6 +38,17 @@ class MqttBroker:
             input_port = validate.check_valid_port(data, "input_port")
             ca_cert_file_name = validate.check_ca_cert_file_name(data)
             self.config = broker_config.BrokerConfig(input_ip, input_port, [], ca_cert_file_name)
+        ES = hkdf_extract(None, 0)
+        self.dES = hkdf_extract(ES, "derived")
+        # these variables will be set following interactions with a client
+        self.client_hello = None
+        self.server_hello = None
+        self.client_kem_ciphtertext = None
+        self.client_finished = None
+        self.dHS = None
+        self.shared_secret = None
+        self.fk_s = None
+        self.fk_c = None
 
     def monitor(self):
         """Monitors for incoming packets from clients and handles them appropriatley"""
@@ -52,11 +74,68 @@ class MqttBroker:
 
     def handle_packet(self, sock, data):
         packet_type = data[0] >> 4
+        protocol_name = self.server_hello[0:6]
         if packet_type == 1:
             self.handle_connect_packet(sock, data)
+        elif check_protocol_name_kemtls(protocol_name):
+            self.handle_kemtls_packet(sock, data)
         else:
             sock.close()
             raise Exception(f"MQTT control packet type {packet_type} is not yet supported")
+
+    def handle_kemtls_packet(self, sock, data):
+        packet_type = data[6]
+        if packet_type == kem.packet_types.KEMTLS_CLIENT_HELLO:
+            self.handle_kemtls_client_hello(sock, data)
+        elif packet_type == kem.packet_types.KEMTLS_CLIENT_KEM_CIPHERTEXT:
+            self.handle_kemtls_client_kem_ciphertext(sock, data)
+        elif packet_type == kem.packet_types.KEMTLS_CLIENT_FINISHED:
+            self.handle_kemtls_client_finished(sock, data)
+        else:
+            raise InvalidParameterError("Packet type did not match any of the expected values")
+
+    def handle_kemtls_client_hello(self, sock, data):
+        self.client_hello = data
+        r_c = data[7:39]
+        public_key_e = data[39:]
+        self.shared_secret, cipher_text_e = encrypt(public_key_e)
+        r_s = random.getrandbits(256)
+        self.send_kemtls_server_hello(sock, cipher_text_e, r_s)
+        HS = hkdf_extract(self.shared_secret, self.dES)
+        self.dHS = hkdf_expand(HS, "derived")
+
+    def handle_kemtls_client_kem_ciphertext(self, sock, data):
+        AHS = hkdf_extract(self.shared_secret, self.dHS)
+        # CAHTS = hkdf_expand("c ahs traffic", AHS, KEY_LEN)
+        # SAHTS = hkdf_expand("s ahs traffic", AHS, KEY_LEN)
+        dAHS = hkdf_expand("derived", AHS)
+        MS = hkdf_extract(None, dAHS)
+        self.fk_c = hkdf_expand("c finished", MS, KEY_LEN)
+        self.fk_s = hkdf_expand("s finished", MS, KEY_LEN)
+
+    def handle_kemtls_client_finished(self, sock, data):
+        hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext
+        hmac_obj = hmac.new(self.fk_c, hmac_msg, hashlib.sha3_256)
+        client_hmac = data[7:]
+        hmacs_equal = hmac.compare_digest(hmac_obj.digest(), client_hmac)
+        if not hmacs_equal:
+            raise Exception("HMACs not equal, something went wrong")
+        self.send_kemtls_server_finished(sock, data)
+
+    def send_kemtls_server_hello(self, sock, cipher_text, r_s):
+        protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
+        packet_type = [KEMTLS_SERVER_HELLO]
+        self.server_hello = bytearray(protocol_name + packet_type + [r_s, cipher_text])
+        # TODO: add in certificate here
+        sock.sendall(self.server_hello)
+
+    def send_kemtls_server_finished(self, sock, data):
+        protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
+        packet_type = [KEMTLS_SERVER_FINISHED]
+        hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext + self.client_finished
+        hmac_obj = hmac.new(self.fk_s, hmac_msg, hashlib.sha3_256)
+        server_finished = bytearray(protocol_name + packet_type) + bytearray.fromhex(hmac_obj.hexdigest())
+        sock.sendall(server_finished)
 
     def handle_connect_packet(self, sock, data):
         """Validates incoming connect packet and responds as appropriate"""

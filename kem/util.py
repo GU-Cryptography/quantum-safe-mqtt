@@ -29,9 +29,19 @@ def get_remaining_length_int(data):
         rem_length = (data[1] & 0x7F) + (data[2] & 0x7F) * 128
         data_minus_fixed_header = data[3:]
     elif data[3] >> 7 == 0:
-        rem_length = (data[1] & 0x7F) + (data[2] & 0x7F) * 128 + (data[3] & 0x7F) * 128**2
+        rem_length = (data[1] & 0x7F) + (data[2] & 0x7F) * 128 + (data[3] & 0x7F) * 128 ** 2
         data_minus_fixed_header = data[4:]
     else:
-        rem_length = (data[1] & 0x7F) + (data[2] & 0x7F) * 128 + (data[3] & 0x7F) * 128**2 + (data[4] & 0x7F) * 128**3
+        rem_length = (data[1] & 0x7F) + (data[2] & 0x7F) * 128 + (data[3] & 0x7F) * 128 ** 2 + (
+                    data[4] & 0x7F) * 128 ** 3
         data_minus_fixed_header = data[5:]
     return data_minus_fixed_header, rem_length
+
+
+def check_protocol_name_kemtls(protocol_name):
+    return protocol_name[0] == ord('K') \
+           and protocol_name[1] == ord('E') \
+           and protocol_name[2] == ord('M') \
+           and protocol_name[3] == ord('T') \
+           and protocol_name[4] == ord('L') \
+           and protocol_name[5] == ord('S')
