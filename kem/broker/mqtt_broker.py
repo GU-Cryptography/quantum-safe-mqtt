@@ -9,7 +9,7 @@ import json
 import select
 from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
 
-from hkdf.hkdf import hkdf_expand, hkdf_extract
+from hkdf_interface import hkdf_expand, hkdf_extract
 from kem.client.mqtt_client import KEY_LEN
 from kem.packet_types import *
 from kem.broker import validate
@@ -75,7 +75,7 @@ class MqttBroker:
 
     def handle_packet(self, sock, data):
         packet_type = data[0] >> 4
-        protocol_name = self.server_hello[0:6]
+        protocol_name = data[0:6]
         if packet_type == 1:
             self.handle_connect_packet(sock, data)
         elif check_protocol_name_kemtls(protocol_name):
@@ -99,7 +99,7 @@ class MqttBroker:
         self.client_hello = data
         r_c = data[7:39]
         public_key_e = data[39:]
-        self.shared_secret, cipher_text_e = encrypt(public_key_e)
+        cipher_text_e, self.shared_secret = encrypt(public_key_e)
         r_s = random.getrandbits(256)
         self.send_kemtls_server_hello(sock, cipher_text_e, r_s)
         HS = hkdf_extract(self.shared_secret, self.dES)
@@ -126,7 +126,7 @@ class MqttBroker:
     def send_kemtls_server_hello(self, sock, cipher_text, r_s):
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_SERVER_HELLO]
-        self.server_hello = bytearray(protocol_name + packet_type + [r_s, cipher_text])
+        self.server_hello = bytearray(protocol_name + packet_type) + r_s.to_bytes(32, 'big') + cipher_text
         # TODO: add in certificate here
         sock.sendall(self.server_hello)
 

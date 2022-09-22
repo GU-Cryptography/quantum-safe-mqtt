@@ -8,7 +8,7 @@ import validate
 import json
 import hmac
 from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
-from hkdf.hkdf import hkdf_expand, hkdf_extract
+from hkdf_interface import hkdf_expand, hkdf_extract
 
 from kem.packet_types import *
 from kem.custom_errors import InvalidParameterError
@@ -52,8 +52,6 @@ class MqttClient:
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_HELLO]
         rand_bits = self.rand_c.to_bytes(32, 'big')
-        print(self.rand_c)
-        print(rand_bits)
         self.client_hello = bytearray(protocol_name + packet_type) + rand_bits + bytes(self.pub_key)
         self.config.sock.sendall(self.client_hello)
         print("Sent KEMTLS Hello")
@@ -74,9 +72,9 @@ class MqttClient:
             raise InvalidParameterError("Packet type should be SERVER HELLO")
 
         self.rand_s = int.from_bytes(self.server_hello[7:39], "big")  # read the next 32 bytes (256 bits) into rand_s
-        cipher_text_ephemeral = int.from_bytes(self.server_hello[39:], "big")  # read the remaining bits into cte
+        cipher_text_ephemeral = self.server_hello[39:]  # read the remaining bits into cte
         self.shared_secret = decrypt(self.secret_key, cipher_text_ephemeral)
-        self.client_kem_ciphtertext()
+        self.send_client_kem_ciphertext()
         self.send_client_finished()
 
     def send_client_kem_ciphertext(self):
@@ -85,7 +83,7 @@ class MqttClient:
         # SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
         self.dHS = hkdf_expand(HS, "derived")
 
-        public_key_server = "ABC123"  # TODO extract this from certificate
+        public_key_server = bytes("ABC123", "utf-8")  # TODO extract this from certificate
         cipher_text_s, self.shared_secret = encrypt(public_key_server)
 
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
@@ -186,12 +184,11 @@ class MqttClient:
             if len(read_sockets) > 0:
                 for read_socket in read_sockets:
                     data = read_socket.recv(4096)
-                    print(data)
                     self.handle_packet(data)
 
     def handle_packet(self, data):
         packet_type = data[0] >> 4
-        protocol_name = self.server_hello[0:6]
+        protocol_name = data[0:6]
         if packet_type == MQTT_CONNACK:
             self.handle_connack(data)
         elif check_protocol_name_kemtls(protocol_name):

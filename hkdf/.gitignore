@@ -1,0 +1,7 @@
+*.pyc
+*.swp
+*.egg
+dist/
+build/
+hkdf.egg-info/
+.tox/
