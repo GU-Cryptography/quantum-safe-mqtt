@@ -12,6 +12,7 @@ from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
 from hkdf.hkdf import hkdf_expand, hkdf_extract
 from kem.client.mqtt_client import KEY_LEN
 from kem.packet_types import *
+from kem.broker import validate
 
 
 import kem.packet_types
@@ -178,26 +179,6 @@ class MqttBroker:
         payload = data[11 + properties_len:]
         id_length = (payload[0] << 8) | payload[1]
         client_id = ''.join([chr(num) for num in payload[2:2 + id_length]])
-        if self.secure:
-            x509_certificate = payload[2 + id_length:]
-            print(x509_certificate)
-            cert_file_name = 'config_files/certificate-' + client_id + '.pem'
-            ca_file_name = 'config_files/' + self.config.ca_cert_file_name
-            with open(cert_file_name, 'w') as cert_file:
-                cert_file.write(x509_certificate.decode('utf-8'))
-
-            process = subprocess.run(['openssl', 'verify', '-CAfile', ca_file_name, cert_file_name],
-                                     stdout=subprocess.PIPE,
-                                     universal_newlines=True)
-            if process.stdout.strip() != cert_file_name + ": OK":
-                print("X.509 authentication failed")
-                self.connack(sock, REASON_CODE["authFailed"])
-                return
-            else:
-                print("X.509 authentication succeeded")
-
-        # TODO store client details
-        self.connack(sock, REASON_CODE["success"])
 
     def connack(self, sock, reason_code):
         """Send MQTT CONNACK in response to valid CONNECT packet"""
@@ -217,12 +198,9 @@ class MqttBroker:
         variable_header = [connack_flags, reason_code, len(properties)] + properties
 
         payload = bytearray()
-        if self.secure:
-            # TODO add certificate
-            pass
 
         # fixed header
-        packet_type = 0x02
+        packet_type = MQTT_CONNACK
         variable_header_length = len(variable_header)
         remaining_length = variable_header_length + len(payload)
         fixed_header = [packet_type << 4]

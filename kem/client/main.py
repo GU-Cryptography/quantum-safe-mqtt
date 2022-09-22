@@ -1,7 +1,6 @@
 import time
 import csv
 
-import security_level
 from mqtt_client import MqttClient
 
 
@@ -27,8 +26,9 @@ def test_connect_x_times(client, num_experiments, results_name):
 
 def main():
     client = MqttClient()
-    client.security_level = security_level.NONE
-    test_connect_x_times(client, 10, 'NONE')
+    client.monitor()
+    client.kemtls_client_hello()
+    # test_connect_x_times(client, 10, 'NONE')
 
 
 # Press the green button in the gutter to run the script.
