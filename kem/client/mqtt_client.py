@@ -3,7 +3,7 @@ import random
 
 import select
 
-import client_config
+import kem.client.client_config
 import validate
 import json
 import hmac
@@ -13,7 +13,7 @@ from hkdf.hkdf import hkdf_expand, hkdf_extract
 from kem.packet_types import *
 from kem.custom_errors import InvalidParameterError
 from kem.util import remaining_length_bytes, get_remaining_length_int, check_protocol_name_kemtls
-from kem.client import validate
+from kem.client import validate, client_config
 
 KEY_LEN = 256
 
@@ -35,7 +35,7 @@ class MqttClient:
         self.socket_list = []
         self.rand_c = random.getrandbits(256)
         self.pub_key, self.secret_key = generate_keypair()
-        ES = hkdf_extract(None, 0)
+        ES = hkdf_extract(None, "")
         self.dES = hkdf_extract(ES, "derived")
         # below variables will be set when required info is received from server
         self.rand_s = None
@@ -51,8 +51,13 @@ class MqttClient:
     def kemtls_client_hello(self):
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_HELLO]
-        self.client_hello = bytearray(protocol_name + packet_type + [self.rand_c, self.pub_key])
+        rand_bits = self.rand_c.to_bytes(32, 'big')
+        print(self.rand_c)
+        print(rand_bits)
+        self.client_hello = bytearray(protocol_name + packet_type) + rand_bits + bytes(self.pub_key)
         self.config.sock.sendall(self.client_hello)
+        print("Sent KEMTLS Hello")
+        self.monitor()
 
     def handle_server_hello(self):
         protocol_name = self.server_hello[0:6]
@@ -87,6 +92,7 @@ class MqttClient:
         packet_type = [KEMTLS_CLIENT_KEM_CIPHERTEXT]
         self.client_kem_ciphtertext = bytearray(protocol_name + packet_type + [cipher_text_s])
         self.config.sock.sendall(self.client_kem_ciphtertext)
+        print("sent KEMTLS client KEM ciphertext")
 
     def send_client_finished(self):
         AHS = hkdf_extract(self.shared_secret, self.dHS)
@@ -106,6 +112,7 @@ class MqttClient:
         self.config.sock.sendall(self.client_finished)
 
         # CATS = hkdf_expand("c ap traffic", MS, KEY_LEN)
+        print("sent KEMTLS client finished")
 
     def handle_server_finished(self):
         server_hmac = self.server_finished
@@ -147,6 +154,7 @@ class MqttClient:
         connack_packet = self.config.sock.recv(4096)
         self.handle_connack(connack_packet)
 
+        print("sent MQTT connect")
         return len(packet)
 
     def handle_connack(self, connack_packet):
@@ -178,6 +186,7 @@ class MqttClient:
             if len(read_sockets) > 0:
                 for read_socket in read_sockets:
                     data = read_socket.recv(4096)
+                    print(data)
                     self.handle_packet(data)
 
     def handle_packet(self, data):
@@ -194,9 +203,11 @@ class MqttClient:
     def handle_kemtls_packet(self, data):
         packet_type = data[6]
         if packet_type == KEMTLS_SERVER_HELLO:
+            print("Received KEMTLS Server Hello")
             self.server_hello = data
             self.handle_server_hello()
         elif packet_type == KEMTLS_SERVER_FINISHED:
+            print("Received KEMTLS Server Finished")
             self.server_finished = data
             self.handle_server_finished()
         else:

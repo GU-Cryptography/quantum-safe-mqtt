@@ -39,7 +39,7 @@ class MqttBroker:
             input_port = validate.check_valid_port(data, "input_port")
             ca_cert_file_name = validate.check_ca_cert_file_name(data)
             self.config = broker_config.BrokerConfig(input_ip, input_port, [], ca_cert_file_name)
-        ES = hkdf_extract(None, 0)
+        ES = hkdf_extract(None, "")
         self.dES = hkdf_extract(ES, "derived")
         # these variables will be set following interactions with a client
         self.client_hello = None

@@ -1,7 +1,7 @@
 """This module contains validation of the configuration file and incoming RTEs"""
 
 import socket
-from custom_errors import *
+from kem.custom_errors import *
 
 
 def get_parameter(data, config_option):

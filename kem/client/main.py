@@ -26,11 +26,12 @@ def test_connect_x_times(client, num_experiments, results_name):
 
 def main():
     client = MqttClient()
-    client.monitor()
     client.kemtls_client_hello()
     # test_connect_x_times(client, 10, 'NONE')
 
 
+main()
+
 # Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
