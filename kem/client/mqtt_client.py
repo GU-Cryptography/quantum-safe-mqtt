@@ -7,13 +7,15 @@ import kem.client.client_config
 import validate
 import json
 import hmac
-from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
+from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt, CIPHERTEXT_SIZE, PUBLIC_KEY_SIZE
+from pqcrypto.sign.dilithium2 import sign, verify
 from hkdf_interface import hkdf_expand, hkdf_extract
 
 from kem.packet_types import *
 from kem.custom_errors import InvalidParameterError
 from kem.util import remaining_length_bytes, get_remaining_length_int, check_protocol_name_kemtls
 from kem.client import validate, client_config
+from kem import keys
 
 KEY_LEN = 256
 
@@ -40,6 +42,8 @@ class MqttClient:
         # below variables will be set when required info is received from server
         self.rand_s = None
         self.shared_secret = None
+        self.server_public_key = None
+        self.cipher_text = None
         self.dHS = None
         self.fk_s = None
         self.client_hello = None
@@ -52,7 +56,8 @@ class MqttClient:
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_HELLO]
         rand_bits = self.rand_c.to_bytes(32, 'big')
-        self.client_hello = bytearray(protocol_name + packet_type) + rand_bits + bytes(self.pub_key)
+        self.client_hello = bytearray(protocol_name + packet_type) + rand_bits + self.pub_key
+
         self.config.sock.sendall(self.client_hello)
         print("Sent KEMTLS Hello")
         self.monitor()
@@ -72,8 +77,11 @@ class MqttClient:
             raise InvalidParameterError("Packet type should be SERVER HELLO")
 
         self.rand_s = int.from_bytes(self.server_hello[7:39], "big")  # read the next 32 bytes (256 bits) into rand_s
-        cipher_text_ephemeral = self.server_hello[39:]  # read the remaining bits into cte
-        self.shared_secret = decrypt(self.secret_key, cipher_text_ephemeral)
+        self.cipher_text = self.server_hello[39:39 + CIPHERTEXT_SIZE]  # read bits into cte
+        self.server_public_key = self.server_hello[39 + CIPHERTEXT_SIZE:39 + CIPHERTEXT_SIZE + PUBLIC_KEY_SIZE]
+        ca_signature = self.server_hello[39 + CIPHERTEXT_SIZE + PUBLIC_KEY_SIZE:]
+        assert verify(keys.ca_public_key, self.server_public_key, ca_signature)
+        self.shared_secret = decrypt(self.secret_key, self.cipher_text)
         self.send_client_kem_ciphertext()
         self.send_client_finished()
 
@@ -83,12 +91,9 @@ class MqttClient:
         # SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
         self.dHS = hkdf_expand(HS, "derived")
 
-        public_key_server = bytes("ABC123", "utf-8")  # TODO extract this from certificate
-        cipher_text_s, self.shared_secret = encrypt(public_key_server)
-
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_KEM_CIPHERTEXT]
-        self.client_kem_ciphtertext = bytearray(protocol_name + packet_type + [cipher_text_s])
+        self.client_kem_ciphtertext = bytearray(protocol_name + packet_type) + self.cipher_text
         self.config.sock.sendall(self.client_kem_ciphtertext)
         print("sent KEMTLS client KEM ciphertext")
 
@@ -96,14 +101,12 @@ class MqttClient:
         AHS = hkdf_extract(self.shared_secret, self.dHS)
         # CAHTS = hkdf_expand("c ahs traffic", AHS, KEY_LEN)
         # SAHTS = hkdf_expand("s ahs traffic", AHS, KEY_LEN)
-        dAHS = hkdf_expand("derived", AHS)
-        MS = hkdf_extract(None, dAHS)
-        fk_c = hkdf_expand("c finished", MS, KEY_LEN)
-        self.fk_s = hkdf_expand("s finished", MS, KEY_LEN)
-
+        dAHS = hkdf_expand(AHS, "derived")
+        MS = hkdf_extract(dAHS, None)
+        fk_c = hkdf_expand(MS, "c finished", KEY_LEN)
+        self.fk_s = hkdf_expand(MS, "s finished", KEY_LEN)
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext
         hmac_obj = hmac.new(fk_c, hmac_msg, hashlib.sha3_256)
-
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_FINISHED]
         self.client_finished = bytearray(protocol_name + packet_type) + bytearray.fromhex(hmac_obj.hexdigest())
@@ -113,7 +116,7 @@ class MqttClient:
         print("sent KEMTLS client finished")
 
     def handle_server_finished(self):
-        server_hmac = self.server_finished
+        server_hmac = self.server_finished[7:]
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext + self.client_finished
         own_hmac = hmac.new(self.fk_s, hmac_msg, hashlib.sha3_256)
         hmacs_equal = hmac.compare_digest(own_hmac.digest(), server_hmac)
@@ -176,6 +179,8 @@ class MqttClient:
         properties_length = data[2]
 
         payload = data[3 + properties_length:]
+
+        print("Succesfully connected!")
 
     def monitor(self):
         """monitor for incoming messages"""
