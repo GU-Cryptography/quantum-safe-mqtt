@@ -1,3 +1,4 @@
+import csv
 import hashlib
 import random
 
@@ -39,6 +40,8 @@ class MqttClient:
         self.pub_key, self.secret_key = generate_keypair()
         ES = hkdf_extract(None, "")
         self.dES = hkdf_extract(ES, "derived")
+        self.results_file = open('../results/bandwidth.csv', 'w')
+        self.results_writer = csv.writer(self.results_file)
         # below variables will be set when required info is received from server
         self.rand_s = None
         self.shared_secret = None
@@ -59,6 +62,7 @@ class MqttClient:
         self.client_hello = bytearray(protocol_name + packet_type) + rand_bits + self.pub_key
 
         self.config.sock.sendall(self.client_hello)
+        self.results_writer.writerow(['KEMTLS ClientHello', len(self.client_hello)])
         print("Sent KEMTLS Hello")
         self.monitor()
 
@@ -96,6 +100,7 @@ class MqttClient:
         self.client_kem_ciphtertext = bytearray(protocol_name + packet_type) + self.cipher_text
         self.config.sock.sendall(self.client_kem_ciphtertext)
         print("sent KEMTLS client KEM ciphertext")
+        self.results_writer.writerow(['KEMTLS ClientKemCipherText', len(self.client_kem_ciphtertext)])
 
     def send_client_finished(self):
         AHS = hkdf_extract(self.shared_secret, self.dHS)
@@ -114,6 +119,7 @@ class MqttClient:
 
         # CATS = hkdf_expand("c ap traffic", MS, KEY_LEN)
         print("sent KEMTLS client finished")
+        self.results_writer.writerow(['KEMTLS ClientFinished', len(self.client_finished)])
 
     def handle_server_finished(self):
         server_hmac = self.server_finished[7:]
@@ -151,12 +157,12 @@ class MqttClient:
         packet = bytearray(fixed_header + variable_header) + payload
         self.config.sock.sendall(packet)
 
-        # receive CONNACK
-        connack_packet = self.config.sock.recv(4096)
-        self.handle_connack(connack_packet)
+        self.results_writer.writerow(['MQTT Connect', len(packet)])
 
-        print("sent MQTT connect")
-        return len(packet)
+        # # receive CONNACK
+        # connack_packet = self.config.sock.recv(4096)
+        # self.handle_connack(connack_packet)
+        # print("sent MQTT connect")
 
     def handle_connack(self, connack_packet):
         """Handle the incoming CONNACK packet"""
@@ -176,40 +182,42 @@ class MqttClient:
         if reason_code != 0x00:
             raise NotImplementedError("Handling for unsuccessful error codes not yet implemented")
 
-        properties_length = data[2]
-
-        payload = data[3 + properties_length:]
-
         print("Succesfully connected!")
+        return True  # return True to stop monitor function
 
     def monitor(self):
         """monitor for incoming messages"""
-        while True:
+        stop_monitor = False
+        while not stop_monitor:
             read_sockets, write_sockets, error_sockets = select.select([self.config.sock], [], [])
             if len(read_sockets) > 0:
                 for read_socket in read_sockets:
                     data = read_socket.recv(4096)
-                    self.handle_packet(data)
+                    stop_monitor = self.handle_packet(data)
 
     def handle_packet(self, data):
         packet_type = data[0] >> 4
         protocol_name = data[0:6]
         if packet_type == MQTT_CONNACK:
-            self.handle_connack(data)
+            self.results_writer.writerow(['MQTT Connack', len(data)])
+            stop_monitor = self.handle_connack(data)
         elif check_protocol_name_kemtls(protocol_name):
-            self.handle_kemtls_packet(data)
+            stop_monitor = self.handle_kemtls_packet(data)
         else:
             self.config.sock.close()
             raise Exception(f"MQTT control packet type {packet_type} is not yet supported")
+        return stop_monitor
 
     def handle_kemtls_packet(self, data):
         packet_type = data[6]
         if packet_type == KEMTLS_SERVER_HELLO:
             print("Received KEMTLS Server Hello")
+            self.results_writer.writerow(['KEMTLS ServerHello', len(data)])
             self.server_hello = data
             self.handle_server_hello()
         elif packet_type == KEMTLS_SERVER_FINISHED:
             print("Received KEMTLS Server Finished")
+            self.results_writer.writerow(['KEMTLS ServerFinished', len(data)])
             self.server_finished = data
             self.handle_server_finished()
         else:

@@ -4,34 +4,33 @@ import csv
 from mqtt_client import MqttClient
 
 
-def test_connect_x_times(client, num_experiments, results_name):
-    """Test MQTT connect time with a given broker configuration a given number of times and record results in the
+def connect_x_times(client, num_experiments):
+    """Test MQTT connect time with KEMTLS security a given number of times and record results in the
        given lists"""
-    packet_size_list = []
     connect_time_list = []
     for i in range(num_experiments):
+        client.results_file.truncate(0)  # clear bandwidth results (no need to store for each run, as they don't change)
         start = time.time()
-        packet_size = client.connect()
+        client.kemtls_client_hello()
         end = time.time()
         connect_time_list.append(end - start)
-        packet_size_list.append(packet_size)
+    client.results_file.close()
 
     # write results
-    with open('../results/' + results_name + '.csv', 'w') as f:
+    with open('../results/time.csv', 'w') as f:
+        f.truncate(0)  # clear previous experiment results
         writer = csv.writer(f)
-        writer.writerow(['Packet Size', 'Connect Time'])
+        writer.writerow(['Run Num', 'Connect Time'])
         for i in range(num_experiments):
-            writer.writerow([packet_size_list[i], connect_time_list[i]])
+            writer.writerow([i, connect_time_list[i]])
 
 
 def main():
     client = MqttClient()
-    client.kemtls_client_hello()
-    # test_connect_x_times(client, 10, 'NONE')
+    connect_x_times(client, 20)
 
 
 main()
-
 # Press the green button in the gutter to run the script.
 # if __name__ == '__main__':
 #     main()
