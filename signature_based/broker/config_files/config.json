@@ -1,0 +1,5 @@
+{
+  "input_ip": "127.0.0.1",
+  "input_port": 3999,
+  "ca_cert_file_name": "ca.pem"
+}

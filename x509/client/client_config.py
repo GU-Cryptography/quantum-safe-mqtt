@@ -4,14 +4,13 @@ import socket
 class Config:
     """Represents router configuration from config.json file"""
 
-    def __init__(self, client_id, input_ip, input_port, broker_ip, broker_port, cert_file_name, post_quantum_cert_file):
+    def __init__(self, client_id, input_ip, input_port, broker_ip, broker_port, cert_file_name):
         self.client_id = client_id
         self.input_ip = input_ip
         self.input_port = input_port
         self.broker_ip = broker_ip
         self.broker_port = broker_port
         self.cert_file_name = cert_file_name
-        self.post_quantum_cert_file = post_quantum_cert_file
         self.sock = None
         self.listen_socket = None
         self.add_socket_to_config()

@@ -1,7 +1,8 @@
 """This module contains validation of the configuration file and incoming RTEs"""
 
 import socket
-from custom_errors import *
+import x509.security_level as security_level
+from x509.custom_errors import *
 
 
 def get_parameter(data, config_option):
@@ -46,6 +47,20 @@ def check_client_id(data):
     return client_id
 
 
+def get_certificate_filename(data, security):
+    """Get certificate file name"""
+    if security == security_level.CONVENTIONAL:
+        cert_name = get_parameter(data, 'cert_file_name')
+    elif security == security_level.POST_QUANTUM:
+        cert_name = get_parameter(data, 'post_quantum_cert_file_name')
+    else:
+        cert_name = None
+    if cert_name is not None and not isinstance(cert_name, str):
+        raise InvalidParameterError(f'certificate filename must be a string. \n'
+                                    f'The certificate filename type in the config file was: {type(cert_name)}')
+    return cert_name
+
+
 def check_packet_length(data):
     """Checks that the byte array is length 4 + 20n where n is an integer >= 0 and <= 25"""
     length = len(data)
@@ -60,16 +75,6 @@ def check_packet_length(data):
         print("Packet is too long. There must be no more than 25 RIP entries")
         return False
     return True
-
-
-def check_cert_file_name(data, cert_file_name):
-    """Ensures the cert_file_name is a string"""
-    cert_file_name = get_parameter(data, cert_file_name)
-    if not isinstance(cert_file_name, str):
-        raise InvalidParameterError(f'cert_file_name must be a string. \n'
-                                    f'The cert_file_name type in the config file was: {type(cert_file_name)}')
-    return cert_file_name
-
 
 
 def check_header(header):

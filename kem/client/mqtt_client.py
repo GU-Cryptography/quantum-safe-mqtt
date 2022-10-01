@@ -4,12 +4,11 @@ import random
 
 import select
 
-import kem.client.client_config
 import validate
 import json
 import hmac
-from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt, CIPHERTEXT_SIZE, PUBLIC_KEY_SIZE
-from pqcrypto.sign.dilithium2 import sign, verify
+from pqcrypto.kem.kyber512 import generate_keypair, decrypt, CIPHERTEXT_SIZE, PUBLIC_KEY_SIZE
+from pqcrypto.sign.dilithium2 import verify
 from hkdf_interface import hkdf_expand, hkdf_extract
 
 from kem.packet_types import *
@@ -91,8 +90,8 @@ class MqttClient:
 
     def send_client_kem_ciphertext(self):
         HS = hkdf_extract(self.shared_secret, self.dES)
-        # CHTS = hkdf_expand(HS, "c hs traffic", KEY_LEN)
-        # SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
+        CHTS = hkdf_expand(HS, "c hs traffic", KEY_LEN)
+        SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
         self.dHS = hkdf_expand(HS, "derived")
 
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
@@ -104,8 +103,8 @@ class MqttClient:
 
     def send_client_finished(self):
         AHS = hkdf_extract(self.shared_secret, self.dHS)
-        # CAHTS = hkdf_expand("c ahs traffic", AHS, KEY_LEN)
-        # SAHTS = hkdf_expand("s ahs traffic", AHS, KEY_LEN)
+        CAHTS = hkdf_expand(AHS, "c ahs traffic", KEY_LEN)
+        SAHTS = hkdf_expand(AHS, "s ahs traffic", KEY_LEN)
         dAHS = hkdf_expand(AHS, "derived")
         MS = hkdf_extract(dAHS, None)
         fk_c = hkdf_expand(MS, "c finished", KEY_LEN)

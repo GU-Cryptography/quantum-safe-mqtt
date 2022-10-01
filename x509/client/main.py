@@ -1,11 +1,11 @@
 import time
 import csv
 
-import security_level
+import x509.security_level as security_level
 from mqtt_client import MqttClient
 
 
-def test_connect_x_times(client, num_experiments, results_name):
+def connect_x_times(client, num_experiments, results_name):
     """Test MQTT connect time with a given broker configuration a given number of times and record results in the
        given lists"""
     packet_size_list = []
@@ -26,9 +26,8 @@ def test_connect_x_times(client, num_experiments, results_name):
 
 
 def main():
-    client = MqttClient()
-    client.security_level = security_level.NONE
-    test_connect_x_times(client, 10, 'NONE')
+    client = MqttClient(security_level.POST_QUANTUM)
+    connect_x_times(client, 10, 'POST_QUANTUM')
 
 
 # Press the green button in the gutter to run the script.

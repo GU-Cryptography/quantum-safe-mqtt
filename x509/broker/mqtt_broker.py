@@ -1,11 +1,12 @@
 import subprocess
 
 import broker_config
-import validate
+import x509.client.validate as validate
 import json
 import select
-from custom_errors import *
-from util import remaining_length_bytes, get_remaining_length_int
+import x509.security_level as security_level
+from x509.custom_errors import *
+from x509.util import remaining_length_bytes, get_remaining_length_int
 
 REASON_CODE = {
     "success": 0x00,
@@ -15,17 +16,17 @@ REASON_CODE = {
 
 class MqttBroker:
 
-    def __init__(self):
+    def __init__(self, security):
         """Checks that data provided in the config json is valid as according to assignment specifications"""
         self.socket_list = []
         self.client_records = []
         self.buffer_size = 1024
-        self.secure = True
+        self.secure = security
         with open('config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")
-            ca_cert_file_name = validate.check_ca_cert_file_name(data)
+            ca_cert_file_name = validate.get_parameter(data, 'ca_cert_file_name')
             self.config = broker_config.BrokerConfig(input_ip, input_port, [], ca_cert_file_name)
 
     def monitor(self):

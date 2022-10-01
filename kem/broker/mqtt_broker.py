@@ -6,7 +6,7 @@ import broker_config
 import validate
 import json
 import select
-from pqcrypto.kem.kyber512 import generate_keypair, encrypt, decrypt
+from pqcrypto.kem.kyber512 import encrypt
 
 from hkdf_interface import hkdf_expand, hkdf_extract
 from kem.client.mqtt_client import KEY_LEN
@@ -96,7 +96,6 @@ class MqttBroker:
 
     def handle_kemtls_client_hello(self, sock, data):
         self.client_hello = data
-        r_c = data[7:39]
         public_key_e = data[39:]
 
         cipher_text_e, self.shared_secret = encrypt(public_key_e)
@@ -104,13 +103,15 @@ class MqttBroker:
         r_s = random.getrandbits(256)
         self.send_kemtls_server_hello(sock, cipher_text_e, r_s)
         HS = hkdf_extract(self.shared_secret, self.dES)
+        CHTS = hkdf_expand(HS, "c hs traffic", KEY_LEN)
+        SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
         self.dHS = hkdf_expand(HS, "derived")
 
     def handle_kemtls_client_kem_ciphertext(self, data):
         self.client_kem_ciphtertext = data
         AHS = hkdf_extract(self.shared_secret, self.dHS)
-        # CAHTS = hkdf_expand("c ahs traffic", AHS, KEY_LEN)
-        # SAHTS = hkdf_expand("s ahs traffic", AHS, KEY_LEN)
+        CAHTS = hkdf_expand(AHS, "c ahs traffic", KEY_LEN)
+        SAHTS = hkdf_expand(AHS, "s ahs traffic", KEY_LEN)
         dAHS = hkdf_expand(AHS, "derived")
         MS = hkdf_extract(dAHS, None)
 
