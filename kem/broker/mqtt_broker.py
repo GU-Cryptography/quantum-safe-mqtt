@@ -32,7 +32,7 @@ class MqttBroker:
         self.client_records = []
         self.buffer_size = 1024
         self.secure = True
-        with open('config_files/config.json') as json_file:
+        with open('kem/broker/config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")
