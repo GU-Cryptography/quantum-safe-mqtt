@@ -136,7 +136,6 @@ class MqttBroker:
                             + cipher_text \
                             + keys.broker_public_key \
                             + keys.ca_signature
-        # TODO: add in certificate here
         sock.sendall(self.server_hello)
 
     def send_kemtls_server_finished(self, sock, data):

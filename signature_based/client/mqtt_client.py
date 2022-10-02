@@ -24,7 +24,7 @@ class MqttClient:
 
     def __init__(self):
         """Checks that data provided in the config json is valid as according to assignment specifications"""
-        with open('config_files/config.json') as json_file:
+        with open('signature_based/client/config_files/config.json') as json_file:
             data = json.load(json_file)
             client_id = validate.check_client_id(data)
             input_ip = validate.check_valid_ip(data, "input_ip")
@@ -39,7 +39,7 @@ class MqttClient:
         self.premaster_secret = None
         ES = hkdf_extract(None, "")
         self.dES = hkdf_extract(ES, "derived")
-        self.results_file = open('../results/bandwidth.csv', 'w')
+        self.results_file = open('signature_based/results/bandwidth.csv', 'w')
         self.results_writer = csv.writer(self.results_file)
         # below variables will be set when required info is received from server
         self.rand_s = None
@@ -56,7 +56,7 @@ class MqttClient:
 
     def clear_results_file(self):
         self.results_file.close()
-        self.results_file = open('../results/bandwidth.csv', 'w')
+        self.results_file = open('signature_based/results/bandwidth.csv', 'w')
         self.results_writer = csv.writer(self.results_file)
 
     def signature_client_hello(self):
