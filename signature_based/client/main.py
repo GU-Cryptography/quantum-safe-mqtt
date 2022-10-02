@@ -27,7 +27,7 @@ def connect_x_times(client, num_experiments):
 
 def main():
     client = MqttClient()
-    connect_x_times(client, 20)
+    connect_x_times(client, 100)
 
 
 main()
