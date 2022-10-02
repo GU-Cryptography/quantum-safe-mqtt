@@ -17,7 +17,7 @@ def connect_x_times(client, num_experiments):
     client.results_file.close()
 
     # write results
-    with open('../results/time.csv', 'w') as f:
+    with open('kem/results/time.csv', 'w') as f:
         f.truncate(0)  # clear previous experiment results
         writer = csv.writer(f)
         writer.writerow(['Run Num', 'Connect Time'])
