@@ -70,7 +70,7 @@
       <recent name="$PROJECT_DIR$" />
     </key>
   </component>
-  <component name="RunManager" selected="Python.kem client">
+  <component name="RunManager">
     <configuration name="kem client" type="PythonConfigurationType" factoryName="Python">
       <module name="quantum-safe-mqtt" />
       <option name="INTERPRETER_OPTIONS" value="" />
@@ -203,23 +203,6 @@
       <option name="INPUT_FILE" value="" />
       <method v="2" />
     </configuration>
-    <list>
-      <item itemvalue="Python.kem client" />
-      <item itemvalue="Python.mqtt_broker" />
-      <item itemvalue="Python.mqtt_client" />
-      <item itemvalue="Python.main (2)" />
-      <item itemvalue="Python.main (3)" />
-      <item itemvalue="Python.main" />
-    </list>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Python.main" />
-        <item itemvalue="Python.mqtt_broker" />
-        <item itemvalue="Python.main (3)" />
-        <item itemvalue="Python.main (2)" />
-        <item itemvalue="Python.mqtt_client" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="SvnConfiguration">
