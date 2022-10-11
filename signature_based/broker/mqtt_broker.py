@@ -13,6 +13,7 @@ from signature_based.client.mqtt_client import KEY_LEN
 from signature_based.packet_types import *
 from signature_based.broker import validate
 from signature_based import keys
+from environment import home_path
 
 from signature_based.custom_errors import *
 from signature_based.util import remaining_length_bytes, get_remaining_length_int, check_protocol_name_signature
@@ -31,7 +32,7 @@ class MqttBroker:
         self.client_records = []
         self.buffer_size = 1024
         self.secure = True
-        with open('kem/broker/config_files/config.json') as json_file:
+        with open(home_path + 'kem/broker/config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")

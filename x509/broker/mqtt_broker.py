@@ -7,6 +7,8 @@ import select
 import x509.security_level as security_level
 from x509.custom_errors import *
 from x509.util import remaining_length_bytes, get_remaining_length_int
+from environment import home_path
+
 
 REASON_CODE = {
     "success": 0x00,
@@ -22,7 +24,7 @@ class MqttBroker:
         self.client_records = []
         self.buffer_size = 1024
         self.secure = security
-        with open('config_files/config.json') as json_file:
+        with open(home_path + 'config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")

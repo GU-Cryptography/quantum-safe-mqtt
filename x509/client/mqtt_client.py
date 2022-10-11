@@ -7,6 +7,7 @@ import json
 
 from x509.custom_errors import InvalidParameterError
 from x509.util import remaining_length_bytes, get_remaining_length_int
+from environment import home_path
 
 
 class MqttClient:
@@ -14,7 +15,7 @@ class MqttClient:
     def __init__(self, security):
         """Checks that data provided in the config json is valid as according to assignment specifications"""
         self.security_level = security
-        with open('config_files/config.json') as json_file:
+        with open(home_path + 'x509/client/config_files/config.json') as json_file:
             data = json.load(json_file)
             client_id = validate.check_client_id(data)
             input_ip = validate.check_valid_ip(data, "input_ip")
@@ -43,7 +44,7 @@ class MqttClient:
         payload = bytearray(id_length + client_id)
         if self.security_level == security_level.CONVENTIONAL or self.security_level == security_level.POST_QUANTUM:
             print(self.config.cert_file_name)
-            with open('config_files/' + self.config.cert_file_name, 'rb') as f:
+            with open(home_path + 'x509/client/config_files/' + self.config.cert_file_name, 'rb') as f:
                 x509_certificate = f.read()
                 payload += x509_certificate
 

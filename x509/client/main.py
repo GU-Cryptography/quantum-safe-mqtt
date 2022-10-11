@@ -3,6 +3,7 @@ import csv
 
 import x509.security_level as security_level
 from mqtt_client import MqttClient
+from environment import home_path
 
 
 def connect_x_times(client, num_experiments, results_name):
@@ -18,7 +19,7 @@ def connect_x_times(client, num_experiments, results_name):
         packet_size_list.append(packet_size)
 
     # write results
-    with open('../results/' + results_name + '.csv', 'w') as f:
+    with open(home_path + 'x509/results/' + results_name + '.csv', 'w') as f:
         writer = csv.writer(f)
         writer.writerow(['Packet Size', 'Connect Time'])
         for i in range(num_experiments):

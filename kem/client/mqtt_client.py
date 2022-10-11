@@ -16,6 +16,7 @@ from kem.custom_errors import InvalidParameterError
 from kem.util import remaining_length_bytes, get_remaining_length_int, check_protocol_name_kemtls
 from kem.client import validate, client_config
 from kem import keys
+from environment import home_path
 
 KEY_LEN = 256
 
@@ -24,7 +25,7 @@ class MqttClient:
 
     def __init__(self):
         """Checks that data provided in the config json is valid as according to assignment specifications"""
-        with open('kem/client/config_files/config.json') as json_file:
+        with open(home_path + 'kem/client/config_files/config.json') as json_file:
             data = json.load(json_file)
             client_id = validate.check_client_id(data)
             input_ip = validate.check_valid_ip(data, "input_ip")
@@ -39,7 +40,7 @@ class MqttClient:
         self.pub_key, self.secret_key = generate_keypair()
         ES = hkdf_extract(None, "")
         self.dES = hkdf_extract(ES, "derived")
-        self.results_file = open('kem/results/bandwidth.csv', 'w')
+        self.results_file = open(home_path + 'kem/results/bandwidth.csv', 'w')
         self.results_writer = csv.writer(self.results_file)
         # below variables will be set when required info is received from server
         self.rand_s = None
