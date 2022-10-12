@@ -1,12 +1,12 @@
 import select
 
 import client_config
-import x509.security_level as security_level
-import x509.client.validate as validate
+import insecure_mqtt.security_level as security_level
+import insecure_mqtt.client.validate as validate
 import json
 
-from x509.custom_errors import InvalidParameterError
-from x509.util import remaining_length_bytes, get_remaining_length_int
+from insecure_mqtt.custom_errors import InvalidParameterError
+from insecure_mqtt.util import remaining_length_bytes, get_remaining_length_int
 from environment import home_path
 
 
@@ -15,7 +15,7 @@ class MqttClient:
     def __init__(self, security):
         """Checks that data provided in the config json is valid as according to assignment specifications"""
         self.security_level = security
-        with open(home_path + 'x509/client/config_files/config.json') as json_file:
+        with open(home_path + 'insecure_mqtt/client/config_files/config.json') as json_file:
             data = json.load(json_file)
             client_id = validate.check_client_id(data)
             input_ip = validate.check_valid_ip(data, "input_ip")
@@ -43,7 +43,7 @@ class MqttClient:
         client_id = [ord(char) for char in list(self.config.client_id)]
         payload = bytearray(id_length + client_id)
         if self.security_level == security_level.CONVENTIONAL or self.security_level == security_level.POST_QUANTUM:
-            with open(home_path + 'x509/client/config_files/' + self.config.cert_file_name, 'rb') as f:
+            with open(home_path + 'insecure_mqtt/client/config_files/' + self.config.cert_file_name, 'rb') as f:
                 x509_certificate = f.read()
                 payload += x509_certificate
 
@@ -57,6 +57,7 @@ class MqttClient:
         # send packet
         packet = bytearray(fixed_header + variable_header) + payload
         self.config.sock.sendall(packet)
+        print("Sent connack packet")
 
         # receive CONNACK
         connack_packet = self.config.sock.recv(4096)
@@ -94,6 +95,8 @@ class MqttClient:
         properties_length = data[2]
 
         payload = data[3 + properties_length:]
+
+        print("Succesfully connected!")
 
     def handle_packet(self, data):
         pass

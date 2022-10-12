@@ -1,8 +1,8 @@
 """This module contains validation of the configuration file and incoming RTEs"""
 
 import socket
-import x509.security_level as security_level
-from x509.custom_errors import *
+import insecure_mqtt.security_level as security_level
+from insecure_mqtt.custom_errors import *
 
 
 def get_parameter(data, config_option):

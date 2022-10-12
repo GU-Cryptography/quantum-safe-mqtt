@@ -1,12 +1,12 @@
 import subprocess
 
 import broker_config
-import x509.client.validate as validate
+import insecure_mqtt.client.validate as validate
 import json
 import select
-import x509.security_level as security_level
-from x509.custom_errors import *
-from x509.util import remaining_length_bytes, get_remaining_length_int
+import insecure_mqtt.security_level as security_level
+from insecure_mqtt.custom_errors import *
+from insecure_mqtt.util import remaining_length_bytes, get_remaining_length_int
 from environment import home_path
 
 
@@ -24,7 +24,7 @@ class MqttBroker:
         self.client_records = []
         self.buffer_size = 1024
         self.secure = security
-        with open(home_path + 'x509/broker/config_files/config.json') as json_file:
+        with open(home_path + 'insecure_mqtt/broker/config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")
@@ -103,12 +103,12 @@ class MqttBroker:
         id_length = (payload[0] << 8) | payload[1]
         client_id = ''.join([chr(num) for num in payload[2:2 + id_length]])
         if self.secure:
-            x509_certificate = payload[2 + id_length:]
-            print(x509_certificate)
+            insecure_mqtt_certificate = payload[2 + id_length:]
+            print(insecure_mqtt_certificate)
             cert_file_name = 'config_files/certificate-' + client_id + '.pem'
             ca_file_name = 'config_files/' + self.config.ca_cert_file_name
             with open(cert_file_name, 'w') as cert_file:
-                cert_file.write(x509_certificate.decode('utf-8'))
+                cert_file.write(insecure_mqtt_certificate.decode('utf-8'))
 
             process = subprocess.run(['openssl', 'verify', '-CAfile', ca_file_name, cert_file_name],
                                      stdout=subprocess.PIPE,
