@@ -24,7 +24,7 @@ class MqttBroker:
         self.client_records = []
         self.buffer_size = 1024
         self.secure = security
-        with open(home_path + 'config_files/config.json') as json_file:
+        with open(home_path + 'x509/broker/config_files/config.json') as json_file:
             data = json.load(json_file)
             input_ip = validate.check_valid_ip(data, "input_ip")
             input_port = validate.check_valid_port(data, "input_port")

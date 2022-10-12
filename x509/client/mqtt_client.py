@@ -43,7 +43,6 @@ class MqttClient:
         client_id = [ord(char) for char in list(self.config.client_id)]
         payload = bytearray(id_length + client_id)
         if self.security_level == security_level.CONVENTIONAL or self.security_level == security_level.POST_QUANTUM:
-            print(self.config.cert_file_name)
             with open(home_path + 'x509/client/config_files/' + self.config.cert_file_name, 'rb') as f:
                 x509_certificate = f.read()
                 payload += x509_certificate
@@ -76,7 +75,6 @@ class MqttClient:
 
     def handle_connack(self, connack_packet):
         """Handle the incoming CONNACK packet"""
-        print(connack_packet)
         if connack_packet[0] >> 4 != 0x02:
             raise Exception("Control packet type must be 0x02 (CONNACK)")
 

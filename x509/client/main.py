@@ -13,10 +13,10 @@ def connect_x_times(client, num_experiments, results_name):
     connect_time_list = []
     for i in range(num_experiments):
         start = time.time()
-        packet_size = client.connect()
+        client.connect()
         end = time.time()
         connect_time_list.append(end - start)
-        packet_size_list.append(packet_size)
+        packet_size_list.append(i)
 
     # write results
     with open(home_path + 'x509/results/' + results_name + '.csv', 'w') as f:
@@ -27,8 +27,8 @@ def connect_x_times(client, num_experiments, results_name):
 
 
 def main():
-    client = MqttClient(security_level.POST_QUANTUM)
-    connect_x_times(client, 10, 'POST_QUANTUM')
+    client = MqttClient(security_level.NONE)
+    connect_x_times(client, 100, 'NONE')
 
 
 # Press the green button in the gutter to run the script.
