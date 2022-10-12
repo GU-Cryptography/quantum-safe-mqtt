@@ -1,8 +1,8 @@
 {
   "client_id": "C1",
-  "input_ip": "127.0.0.1",
+  "input_ip": "10.10.10.3",
   "input_port": 4567,
-  "broker_ip": "127.0.0.1",
+  "broker_ip": "10.10.10.4",
   "broker_port": 3999,
   "cert_file_name": "cert.pem",
   "post_quantum_cert_file_name": "dilithium3.crt"
