@@ -56,11 +56,13 @@ class MqttClient:
         self.server_finished = None
 
     def clear_results_file(self):
+        """Clears results file to allow new results to be written"""
         self.results_file.close()
         self.results_file = open(home_path + 'signature_based/results/bandwidth.csv', 'w')
         self.results_writer = csv.writer(self.results_file)
 
     def signature_client_hello(self):
+        """Monitors for incoming packets from clients and handles them appropriatley"""
         protocol_name = [ord('S'), ord('I'), ord('G'), ord('N'), ord('A'), ord('T')]
         packet_type = [SIGNATURE_CLIENT_HELLO]
         rand_bits = self.rand_c.to_bytes(32, 'big')
@@ -73,6 +75,8 @@ class MqttClient:
         self.monitor()
 
     def handle_server_hello(self):
+        """Processes the incoming server hello packet, reading the appropriate data then sends ciphertext and finished
+         messages in response"""
         protocol_name = self.server_hello[0:6]
         if not check_protocol_name_signature(protocol_name):
             raise InvalidParameterError("Protocol name field is not equal to SIGNAT")
@@ -89,6 +93,7 @@ class MqttClient:
         self.send_client_finished()
 
     def send_client_premaster_secret(self):
+        """Send the ciphertext which the broker must decrypt"""
         ciphertext, self.premaster_secret = encrypt(self.server_public_key)
         HS = hkdf_extract(self.premaster_secret, self.dES)
         CHTS = hkdf_expand(HS, "c hs traffic", KEY_LEN)
@@ -102,6 +107,7 @@ class MqttClient:
         self.results_writer.writerow(['SIGNATURE Client Premaster Secret', len(self.client_premaster_secret)])
 
     def send_client_finished(self):
+        """Sends message to conclude authentication, with a hash on all messages to ensure they weren't altered"""
         AHS = hkdf_extract(self.premaster_secret, self.dHS)
         CAHTS = hkdf_expand(AHS, "c ahs traffic", KEY_LEN)
         SAHTS = hkdf_expand(AHS, "s ahs traffic", KEY_LEN)
@@ -121,6 +127,7 @@ class MqttClient:
         self.results_writer.writerow(['SIGNATURE ClientFinished', len(self.client_finished)])
 
     def handle_server_finished(self):
+        """Checks the server's hash of all messages matches the client's"""
         server_hmac = self.server_finished[7:]
         hmac_msg = self.client_hello + self.server_hello + self.client_premaster_secret + self.client_finished
         own_hmac = hmac.new(self.fk_s, hmac_msg, hashlib.sha3_256)
@@ -190,6 +197,7 @@ class MqttClient:
                     stop_monitor = self.handle_packet(data)
 
     def handle_packet(self, data):
+        """Handles an packet, checking if it is an MQTT packet or should be used for authentication"""
         packet_type = data[0] >> 4
         protocol_name = data[0:6]
         if packet_type == MQTT_CONNACK:
@@ -203,6 +211,7 @@ class MqttClient:
         return stop_monitor
 
     def handle_signature_packet(self, data):
+        """Sends signature packets to the appropriate handler"""
         packet_type = data[6]
         if packet_type == SIGNATURE_SERVER_HELLO:
             print("Received SIGNATURE Server Hello")

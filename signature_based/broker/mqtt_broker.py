@@ -75,6 +75,7 @@ class MqttBroker:
                             self.socket_list.remove(read_socket)
 
     def handle_packet(self, sock, data):
+        """Determines if packets are part of the authentication handshake, or pure MQTT and forwards to correct handler"""
         packet_type = data[0] >> 4
         protocol_name = data[0:6]
         if packet_type == 1:
@@ -86,6 +87,7 @@ class MqttBroker:
             raise Exception(f"MQTT control packet type {packet_type} is not yet supported")
 
     def handle_signature_packet(self, sock, data):
+        """Sends packets to the appropriate specific handler"""
         packet_type = data[6]
         if packet_type == SIGNATURE_CLIENT_HELLO:
             self.handle_signature_client_hello(sock, data)
@@ -97,12 +99,24 @@ class MqttBroker:
             raise InvalidParameterError("Packet type did not match any of the expected values")
 
     def handle_signature_client_hello(self, sock, data):
+        """Handles incoming client hello, and replies with a server hello"""
         self.client_hello = data
         self.r_c = data[39:]
         self.r_s = random.getrandbits(256)
         self.send_signature_server_hello(sock)
 
+    def send_signature_server_hello(self, sock):
+        """Sends the server hello with a broker key, CA signature and a random 256 byte number"""
+        protocol_name = [ord('S'), ord('I'), ord('G'), ord('N'), ord('A'), ord('T')]
+        packet_type = [SIGNATURE_SERVER_HELLO]
+        self.server_hello = bytearray(protocol_name + packet_type) \
+                            + self.r_s.to_bytes(32, 'big') \
+                            + keys.broker_public_key \
+                            + keys.ca_signature
+        sock.sendall(self.server_hello)
+
     def handle_signature_client_premaster_secret(self, data):
+        """Handles the client encrypted packet, and calculates keys based on packet info"""
         self.client_kem_ciphtertext = data
         premaster_ciphertext = data[7:]
         self.premaster_secret = decrypt(keys.broker_secret_key, premaster_ciphertext)
@@ -119,9 +133,8 @@ class MqttBroker:
         self.fk_c = hkdf_expand(MS, "c finished", KEY_LEN)
         self.fk_s = hkdf_expand(MS, "s finished", KEY_LEN)
 
-
-
     def handle_signature_client_finished(self, sock, data):
+        """Receives client's finished packet, ensuring that there has been any data loss in any handshake messages"""
         self.client_finished = data
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext
         hmac_obj = hmac.new(self.fk_c, hmac_msg, hashlib.sha3_256)
@@ -129,18 +142,10 @@ class MqttBroker:
         hmacs_equal = hmac.compare_digest(hmac_obj.digest(), client_hmac)
         if not hmacs_equal:
             raise Exception("HMACs not equal, something went wrong")
-        self.send_signature_server_finished(sock, data)
+        self.send_signature_server_finished(sock)
 
-    def send_signature_server_hello(self, sock):
-        protocol_name = [ord('S'), ord('I'), ord('G'), ord('N'), ord('A'), ord('T')]
-        packet_type = [SIGNATURE_SERVER_HELLO]
-        self.server_hello = bytearray(protocol_name + packet_type) \
-                            + self.r_s.to_bytes(32, 'big') \
-                            + keys.broker_public_key \
-                            + keys.ca_signature
-        sock.sendall(self.server_hello)
-
-    def send_signature_server_finished(self, sock, data):
+    def send_signature_server_finished(self, sock):
+        """Sends server finished message so the client can check all messages have been received correctly"""
         protocol_name = [ord('S'), ord('I'), ord('G'), ord('N'), ord('A'), ord('T')]
         packet_type = [SIGNATURE_SERVER_FINISHED]
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext + self.client_finished

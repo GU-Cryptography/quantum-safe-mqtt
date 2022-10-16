@@ -49,13 +49,13 @@ On the broker:
 
 `$ cd kem/broker` (or the relevant package you wish to test)
 
-`$ broker/main.py`
+`$ python3 main.py`
 
 On the client:
 
 `$ cd kem/client` (or the relevant package you wish to test)
 
-`$ client/main.py`
+`$ python3 main.py`
 
 The client will record results into the `kem/results` directory. It will include `bandwidth.csv` and `times.csv` result files. 
 - `bandwidth.csv` contains the number of bytes of each message sent, along with the message name.

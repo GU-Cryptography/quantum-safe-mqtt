@@ -56,6 +56,7 @@ class MqttClient:
         self.server_finished = None
 
     def kemtls_client_hello(self):
+        """Sends client hello, alerting broker that the client wishes to connect"""
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_CLIENT_HELLO]
         rand_bits = self.rand_c.to_bytes(32, 'big')
@@ -67,6 +68,8 @@ class MqttClient:
         self.monitor()
 
     def handle_server_hello(self):
+        """Processes the incoming server hello packet, reading the appropriate data then sends ciphertext and finished
+        messages in response"""
         protocol_name = self.server_hello[0:6]
         if protocol_name[0] != ord('K') \
                 or protocol_name[1] != ord('E') \
@@ -90,6 +93,7 @@ class MqttClient:
         self.send_client_finished()
 
     def send_client_kem_ciphertext(self):
+        """Send the ciphertext which the broker must decrypt"""
         HS = hkdf_extract(self.shared_secret, self.dES)
         CHTS = hkdf_expand(HS, "c hs traffic", KEY_LEN)
         SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
@@ -103,6 +107,7 @@ class MqttClient:
         self.results_writer.writerow(['KEMTLS ClientKemCipherText', len(self.client_kem_ciphtertext)])
 
     def send_client_finished(self):
+        """Sends message to conclude authentication, with a hash on all messages to ensure they weren't altered"""
         AHS = hkdf_extract(self.shared_secret, self.dHS)
         CAHTS = hkdf_expand(AHS, "c ahs traffic", KEY_LEN)
         SAHTS = hkdf_expand(AHS, "s ahs traffic", KEY_LEN)
@@ -122,6 +127,7 @@ class MqttClient:
         self.results_writer.writerow(['KEMTLS ClientFinished', len(self.client_finished)])
 
     def handle_server_finished(self):
+        """Checks the server's hash of all messages matches the client's"""
         server_hmac = self.server_finished[7:]
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext + self.client_finished
         own_hmac = hmac.new(self.fk_s, hmac_msg, hashlib.sha3_256)
@@ -196,6 +202,7 @@ class MqttClient:
                     stop_monitor = self.handle_packet(data)
 
     def handle_packet(self, data):
+        """Handles an packet, checking if it is an MQTT packet or should be used for authentication"""
         packet_type = data[0] >> 4
         protocol_name = data[0:6]
         if packet_type == MQTT_CONNACK:
@@ -209,6 +216,7 @@ class MqttClient:
         return stop_monitor
 
     def handle_kemtls_packet(self, data):
+        """Sends KEMTLS packets to the appropriate handler"""
         packet_type = data[6]
         if packet_type == KEMTLS_SERVER_HELLO:
             print("Received KEMTLS Server Hello")

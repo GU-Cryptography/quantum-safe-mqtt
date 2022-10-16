@@ -101,14 +101,3 @@ class MqttClient:
     def handle_packet(self, data):
         pass
 
-
-
-    # def subscribe(self):
-
-
-
-
-
-
-
-

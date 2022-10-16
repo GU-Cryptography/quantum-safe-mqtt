@@ -74,6 +74,7 @@ class MqttBroker:
                             self.socket_list.remove(read_socket)
 
     def handle_packet(self, sock, data):
+        """Determines if packets are part of the authentication handshake, or pure MQTT and forwards to correct handler"""
         packet_type = data[0] >> 4
         protocol_name = data[0:6]
         if packet_type == 1:
@@ -85,6 +86,7 @@ class MqttBroker:
             raise Exception(f"MQTT control packet type {packet_type} is not yet supported")
 
     def handle_kemtls_packet(self, sock, data):
+        """Sends packets to the appropriate specific handler"""
         packet_type = data[6]
         if packet_type == kem.packet_types.KEMTLS_CLIENT_HELLO:
             self.handle_kemtls_client_hello(sock, data)
@@ -96,6 +98,7 @@ class MqttBroker:
             raise InvalidParameterError("Packet type did not match any of the expected values")
 
     def handle_kemtls_client_hello(self, sock, data):
+        """Handles incoming client hello, and replies with a server hello"""
         self.client_hello = data
         public_key_e = data[39:]
 
@@ -108,7 +111,19 @@ class MqttBroker:
         SHTS = hkdf_expand(HS, "s hs traffic", KEY_LEN)
         self.dHS = hkdf_expand(HS, "derived")
 
+    def send_kemtls_server_hello(self, sock, cipher_text, r_s):
+        """Sends the server hello with a ciphertext challenge and a random 256 byte number"""
+        protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
+        packet_type = [KEMTLS_SERVER_HELLO]
+        self.server_hello = bytearray(protocol_name + packet_type) \
+                            + r_s.to_bytes(32, 'big') \
+                            + cipher_text \
+                            + keys.broker_public_key \
+                            + keys.ca_signature
+        sock.sendall(self.server_hello)
+
     def handle_kemtls_client_kem_ciphertext(self, data):
+        """Handles the client kem ciphertext packet, and calculates keys based on packet info"""
         self.client_kem_ciphtertext = data
         AHS = hkdf_extract(self.shared_secret, self.dHS)
         CAHTS = hkdf_expand(AHS, "c ahs traffic", KEY_LEN)
@@ -120,6 +135,7 @@ class MqttBroker:
         self.fk_s = hkdf_expand(MS, "s finished", KEY_LEN)
 
     def handle_kemtls_client_finished(self, sock, data):
+        """Receives client's finished packet, ensuring that there has been any data loss in any handshake messages"""
         self.client_finished = data
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext
         hmac_obj = hmac.new(self.fk_c, hmac_msg, hashlib.sha3_256)
@@ -127,19 +143,10 @@ class MqttBroker:
         hmacs_equal = hmac.compare_digest(hmac_obj.digest(), client_hmac)
         if not hmacs_equal:
             raise Exception("HMACs not equal, something went wrong")
-        self.send_kemtls_server_finished(sock, data)
+        self.send_kemtls_server_finished(sock)
 
-    def send_kemtls_server_hello(self, sock, cipher_text, r_s):
-        protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
-        packet_type = [KEMTLS_SERVER_HELLO]
-        self.server_hello = bytearray(protocol_name + packet_type) \
-                            + r_s.to_bytes(32, 'big') \
-                            + cipher_text \
-                            + keys.broker_public_key \
-                            + keys.ca_signature
-        sock.sendall(self.server_hello)
-
-    def send_kemtls_server_finished(self, sock, data):
+    def send_kemtls_server_finished(self, sock):
+        """Sends server finished message so the client can check all messages have been received correctly"""
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
         packet_type = [KEMTLS_SERVER_FINISHED]
         hmac_msg = self.client_hello + self.server_hello + self.client_kem_ciphtertext + self.client_finished

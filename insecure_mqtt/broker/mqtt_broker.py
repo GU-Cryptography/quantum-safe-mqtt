@@ -54,6 +54,7 @@ class MqttBroker:
                             self.socket_list.remove(read_socket)
 
     def handle_packet(self, sock, data):
+        """Sends incoming packets to the correct handler"""
         packet_type = data[0] >> 4
         if packet_type == 1:
             self.handle_connect_packet(sock, data)
@@ -120,7 +121,6 @@ class MqttBroker:
             else:
                 print("X.509 authentication succeeded")
 
-        # TODO store client details
         self.connack(sock, REASON_CODE["success"])
 
     def connack(self, sock, reason_code):
