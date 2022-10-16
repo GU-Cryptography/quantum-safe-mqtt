@@ -10,7 +10,7 @@ def connect_x_times(client, num_experiments):
        given lists"""
     connect_time_list = []
     for i in range(num_experiments):
-        client.results_file.truncate(0)  # clear bandwidth results (no need to store for each run, as they don't change)
+        client.clear_results_file() # clear bandwidth results (no need to store for each run, as they don't change)
         start = time.time()
         client.kemtls_client_hello()
         end = time.time()
@@ -32,6 +32,3 @@ def main():
 
 
 main()
-# Press the green button in the gutter to run the script.
-# if __name__ == '__main__':
-#     main()

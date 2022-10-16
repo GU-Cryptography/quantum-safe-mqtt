@@ -55,6 +55,12 @@ class MqttClient:
         self.client_finished = None
         self.server_finished = None
 
+    def clear_results_file(self):
+        """Clears results file to allow new results to be written"""
+        self.results_file.close()
+        self.results_file = open(home_path + 'kem/results/bandwidth.csv', 'w')
+        self.results_writer = csv.writer(self.results_file)
+
     def kemtls_client_hello(self):
         """Sends client hello, alerting broker that the client wishes to connect"""
         protocol_name = [ord('K'), ord('E'), ord('M'), ord('T'), ord('L'), ord('S')]
