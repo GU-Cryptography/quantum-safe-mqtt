@@ -43,7 +43,7 @@ The repo contains three key packages: `insdecure_mqtt`, `kem`, and `signature_ba
 
 Each package contains a `broker` and `client` directory. These must be run separately, e.g. different machines, VMs, or terminal windows. To test particular security architecture (e.g. `kem`), the following steps should be followed:
 
-In the relevant package, edit the `broker/config_files/config.json` and `client/config_files/config.json` to include the correct IP addresses and port numbers.
+In the relevant package, edit the `broker/config_files/config.json` and `client/config_files/config.json` to include the correct IP addresses and port numbers. Edit 'environment.py` in the root directory, to contain the correct location of the cloned repo on your device.
 
 On the broker:
 
